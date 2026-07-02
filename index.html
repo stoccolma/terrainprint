@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TerrainPrint — Map to 3D</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#0d0d0e;--surface:rgba(18,18,20,0.94);--border:rgba(255,255,255,0.08);--accent:#5b8ef4;--accent-hover:#7aa5ff;--text:#f0f0f2;--muted:#888;--danger:#e05c5c;--success:#4caf88}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden;-webkit-font-smoothing:antialiased}
+  #map{position:absolute;inset:0;z-index:1}
+  #panel{position:absolute;top:20px;left:20px;width:300px;background:var(--surface);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-radius:18px;border:1px solid var(--border);box-shadow:0 32px 64px rgba(0,0,0,.6),0 0 0 .5px rgba(255,255,255,.04);padding:22px;z-index:1000;display:flex;flex-direction:column;gap:16px;max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:thin}
+  #panel::-webkit-scrollbar{width:4px}
+  #panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  .logo{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+  .logo svg{flex-shrink:0}
+  .logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+  .logo-sub{font-size:11px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+  .search-wrap{position:relative}
+  .search-wrap input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:10px 36px 10px 14px;color:var(--text);font-size:13.5px;outline:none;transition:border-color .15s,background .15s}
+  .search-wrap input::placeholder{color:var(--muted)}
+  .search-wrap input:focus{border-color:rgba(91,142,244,.5);background:rgba(255,255,255,.09)}
+  .search-wrap .search-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+  #suggestions{position:absolute;top:calc(100% + 6px);left:0;right:0;background:rgb(22,22,26);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:100;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none}
+  #suggestions.visible{display:block}
+  .suggestion-item{padding:10px 14px;font-size:13px;cursor:pointer;transition:background .1s;border-bottom:1px solid rgba(255,255,255,.04)}
+  .suggestion-item:last-child{border-bottom:none}
+  .suggestion-item:hover{background:rgba(91,142,244,.15)}
+  .suggestion-name{font-weight:500;color:var(--text)}
+  .suggestion-detail{font-size:11px;color:var(--muted);margin-top:2px}
+  .divider{height:1px;background:var(--border);margin:2px 0}
+  #selection-info{display:none;background:rgba(91,142,244,.1);border:1px solid rgba(91,142,244,.25);border-radius:10px;padding:12px 14px}
+  #selection-info.visible{display:block}
+  #selection-name{font-size:14px;font-weight:600;margin-bottom:4px}
+  #selection-bounds{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .btn{width:100%;padding:11px 16px;border-radius:10px;border:none;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,transform .1s,opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.1px}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover:not(:disabled){background:var(--accent-hover)}
+  .btn-ghost{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border)}
+  .btn-ghost:hover:not(:disabled){background:rgba(255,255,255,.11)}
+  .btn-ghost.active{background:rgba(91,142,244,.18);border-color:rgba(91,142,244,.4);color:var(--accent-hover)}
+  .btn-success{background:var(--success);color:#fff}
+  .btn-success:hover:not(:disabled){background:#5dc99e}
+  #progress-wrap{display:none}
+  #progress-wrap.visible{display:block}
+  #progress-label{font-size:12px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between}
+  #progress-bar-bg{height:4px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+  #progress-bar{height:100%;background:var(--accent);border-radius:999px;width:0%;transition:width .3s ease}
+  #downloads{display:none;flex-direction:column;gap:8px}
+  #downloads.visible{display:flex}
+  #downloads .download-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .section-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  #draw-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5;padding:4px 0}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);background:rgb(30,30,34);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:13px;color:var(--text);z-index:9999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.error{border-color:rgba(224,92,92,.4);color:var(--danger)}
+  #toast.success{border-color:rgba(76,175,136,.4);color:var(--success)}
+  .leaflet-control-zoom{border:1px solid var(--border)!important;border-radius:12px!important;overflow:hidden;backdrop-filter:blur(8px)}
+  .leaflet-control-zoom a{background:rgba(18,18,20,.9)!important;color:var(--text)!important;border:none!important;width:34px!important;height:34px!important;line-height:34px!important;font-size:16px!important}
+  .leaflet-control-zoom a:hover{background:rgba(40,40,45,.95)!important}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <div class="logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="#5b8ef4" opacity="0.15"/>
+      <path d="M6 22L12 10l5 8 4-5 5 9H6z" fill="#5b8ef4" opacity="0.8"/>
+      <path d="M6 24h20" stroke="#5b8ef4" stroke-width="2" stroke-linecap="round"/>
+      <rect x="6" y="24" width="20" height="3" rx="1" fill="#5b8ef4" opacity="0.4"/>
+    </svg>
+    <div>
+      <div class="logo-text">TerrainPrint</div>
+      <div class="logo-sub">Map → 3D Print</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="search-input" placeholder="Search for a place…" autocomplete="off">
+    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <div id="suggestions"></div>
+  </div>
+  <div id="draw-hint">Or drag a rectangle on the map to select an area</div>
+  <div id="selection-info">
+    <div id="selection-name">—</div>
+    <div id="selection-bounds"></div>
+  </div>
+  <div class="divider"></div>
+  <div>
+    <div class="section-label" style="margin-bottom:8px">Options</div>
+    <button class="btn btn-ghost" id="marker-btn" onclick="toggleMarkerMode()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      Place a Marker
+    </button>
+    <div id="marker-hint" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;display:none">Click on the map to place a marker</div>
+    <div id="marker-status" style="font-size:12px;color:var(--success);text-align:center;margin-top:6px;display:none">✓ Marker placed — click again to move</div>
+  </div>
+  <button class="btn btn-primary" id="generate-btn" onclick="generate()" disabled>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+    Generate 3D Files
+  </button>
+  <div id="progress-wrap">
+    <div id="progress-label">
+      <span id="progress-text">Fetching elevation data…</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+  </div>
+  <div id="downloads">
+    <div class="download-label">Download</div>
+    <button class="btn btn-success" id="stl-btn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download STL
+    </button>
+    <button class="btn btn-ghost" id="tmf-btn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download 3MF
+    </button>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+'use strict';
+const GRID=64,PRINT_MM=150,TERRAIN_MM=128,BORDER_MM=11,BASE_H=3,TERRAIN_MAX_H=20,MARKER_R=1.8,MARKER_H=7,TEXT_PIXEL=1.6,TEXT_RAISE=0.8;
+let map,selectionLayer,markerLayer,rectDrawing,currentBounds=null,currentName='',markerPos=null,markerMode=false;
+const FONT={' ':[0,0,0,0,0,0,0],'A':[14,17,17,31,17,17,17],'B':[30,17,17,30,17,17,30],'C':[15,16,16,16,16,16,15],'D':[30,17,17,17,17,17,30],'E':[31,16,16,30,16,16,31],'F':[31,16,16,30,16,16,16],'G':[15,16,16,23,17,17,15],'H':[17,17,17,31,17,17,17],'I':[14,4,4,4,4,4,14],'J':[7,2,2,2,2,18,12],'K':[17,18,20,24,20,18,17],'L':[16,16,16,16,16,16,31],'M':[17,27,21,17,17,17,17],'N':[17,25,21,19,17,17,17],'O':[14,17,17,17,17,17,14],'P':[30,17,17,30,16,16,16],'Q':[14,17,17,17,21,18,13],'R':[30,17,17,30,20,18,17],'S':[15,16,16,14,1,1,30],'T':[31,4,4,4,4,4,4],'U':[17,17,17,17,17,17,14],'V':[17,17,17,17,17,10,4],'W':[17,17,17,21,21,27,17],'X':[17,17,10,4,10,17,17],'Y':[17,17,10,4,4,4,4],'Z':[31,1,2,4,8,16,31],'0':[14,19,21,21,25,17,14],'1':[4,12,4,4,4,4,14],'2':[14,17,1,6,8,16,31],'3':[31,1,2,6,1,17,14],'4':[2,6,10,18,31,2,2],'5':[31,16,30,1,1,17,14],'6':[6,8,16,30,17,17,14],'7':[31,1,2,4,8,8,8],'8':[14,17,17,14,17,17,14],'9':[14,17,17,15,1,2,12],'-':[0,0,0,31,0,0,0],'.':[0,0,0,0,0,4,0],'Ö':[10,14,17,17,17,17,14],'Å':[4,10,4,14,17,31,17],'Ä':[10,0,14,17,31,17,17],'Ø':[15,18,21,21,21,9,30],'Æ':[7,12,20,31,20,20,23],'É':[4,8,31,16,30,16,31],'È':[8,4,31,16,30,16,31],'Ü':[10,0,17,17,17,17,14]};
+function getChar(c){return FONT[c.toUpperCase()]||FONT[c]||FONT[' '];}
+
+function initMap(){
+  map=L.map('map',{center:[59.3,18.1],zoom:10,zoomControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:18}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  let startLL=null;
+  map.on('mousedown',e=>{
+    if(markerMode||e.originalEvent.target.closest?.('#panel'))return;
+    startLL=e.latlng;map.dragging.disable();
+    if(rectDrawing){map.removeLayer(rectDrawing);rectDrawing=null;}
+  });
+  map.on('mousemove',e=>{
+    if(markerMode||!startLL)return;
+    if(rectDrawing)map.removeLayer(rectDrawing);
+    rectDrawing=L.rectangle(L.latLngBounds(startLL,e.latlng),{color:'#5b8ef4',weight:2,fillOpacity:.12,dashArray:'6 3'}).addTo(map);
+  });
+  map.on('mouseup',e=>{
+    if(markerMode){placeMarker(e.latlng);return;}
+    if(!startLL)return;
+    map.dragging.enable();
+    const b=L.latLngBounds(startLL,e.latlng);startLL=null;
+    if(b.getNorthEast().distanceTo(b.getSouthWest())<200){
+      if(rectDrawing){map.removeLayer(rectDrawing);rectDrawing=null;}
+      reverseGeocode(e.latlng);return;
+    }
+    setSelection(b,null);
+  });
+}
+
+function reverseGeocode(ll){
+  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${ll.lat}&lon=${ll.lng}&format=json`)
+    .then(r=>r.json()).then(d=>{
+      if(!d?.boundingbox)return;
+      const bb=d.boundingbox.map(Number);
+      const b=L.latLngBounds([bb[0],bb[2]],[bb[1],bb[3]]);
+      const n=d.address?.municipality||d.address?.city||d.address?.town||d.address?.village||d.address?.county||d.name||'Selected Area';
+      setSelection(b,n);map.fitBounds(b,{padding:[60,60]});
+    }).catch(()=>showToast('Geocoding failed','error'));
+}
+
+function setSelection(b,name){
+  currentBounds=b;currentName=name||'Selected Area';
+  if(selectionLayer)map.removeLayer(selectionLayer);
+  selectionLayer=L.rectangle(b,{color:'#5b8ef4',weight:2,fillOpacity:.1}).addTo(map);
+  document.getElementById('selection-name').textContent=currentName;
+  const sw=b.getSouthWest(),ne=b.getNorthEast();
+  document.getElementById('selection-bounds').textContent=`${sw.lat.toFixed(4)}°, ${sw.lng.toFixed(4)}° → ${ne.lat.toFixed(4)}°, ${ne.lng.toFixed(4)}°`;
+  document.getElementById('selection-info').classList.add('visible');
+  document.getElementById('generate-btn').disabled=false;
+  document.getElementById('downloads').classList.remove('visible');
+}
+
+let searchTO=null;
+document.getElementById('search-input').addEventListener('input',e=>{
+  clearTimeout(searchTO);const q=e.target.value.trim();
+  if(q.length<3){hideSug();return;}
+  searchTO=setTimeout(()=>{
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`)
+      .then(r=>r.json()).then(showSug).catch(()=>{});
+  },400);
+});
+document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key==='Escape')hideSug();});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))hideSug();});
+
+function showSug(res){
+  const el=document.getElementById('suggestions');
+  if(!res.length){el.classList.remove('visible');return;}
+  el.innerHTML=res.map((r,i)=>{
+    const p=r.display_name.split(',');
+    return`<div class="suggestion-item" onclick="pickSug(${i})"><div class="suggestion-name">${p[0]}</div><div class="suggestion-detail">${p.slice(1,3).join(',').trim()}</div></div>`;
+  }).join('');
+  el._r=res;el.classList.add('visible');
+}
+function hideSug(){document.getElementById('suggestions').classList.remove('visible');}
+function pickSug(i){
+  const r=document.getElementById('suggestions')._r[i];hideSug();
+  document.getElementById('search-input').value=r.display_name.split(',')[0];
+  const bb=r.boundingbox.map(Number);
+  const b=L.latLngBounds([bb[0],bb[2]],[bb[1],bb[3]]);
+  setSelection(b,r.display_name.split(',')[0]);map.fitBounds(b,{padding:[60,60]});
+}
+
+function toggleMarkerMode(){
+  markerMode=!markerMode;
+  document.getElementById('marker-btn').classList.toggle('active',markerMode);
+  document.getElementById('marker-hint').style.display=markerMode?'block':'none';
+  map.getContainer().style.cursor=markerMode?'crosshair':'';
+}
+function placeMarker(ll){
+  markerPos=ll;
+  if(markerLayer)map.removeLayer(markerLayer);
+  markerLayer=L.marker(ll,{icon:L.divIcon({className:'',html:`<div style="width:22px;height:22px;background:#5b8ef4;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 3px 10px rgba(0,0,0,.4)"></div>`,iconSize:[22,22],iconAnchor:[11,22]})}).addTo(map);
+  document.getElementById('marker-status').style.display='block';
+  document.getElementById('marker-hint').style.display='none';
+  markerMode=false;document.getElementById('marker-btn').classList.remove('active');
+  map.getContainer().style.cursor='';
+}
+
+async function fetchElevation(b){
+  const sw=b.getSouthWest(),ne=b.getNorthEast(),lats=[],lngs=[];
+  for(let j=0;j<GRID;j++)for(let i=0;i<GRID;i++){lats.push(sw.lat+(ne.lat-sw.lat)*j/(GRID-1));lngs.push(sw.lng+(ne.lng-sw.lng)*i/(GRID-1));}
+  const BATCH=100,res=new Float32Array(GRID*GRID),total=Math.ceil(lats.length/BATCH);
+  for(let b2=0;b2<total;b2++){
+    const s=b2*BATCH,e2=Math.min(s+BATCH,lats.length);
+    const loc=Array.from({length:e2-s},(_,k)=>`${lats[s+k].toFixed(6)},${lngs[s+k].toFixed(6)}`).join('|');
+    setProgress(b2/total*80,`Fetching elevation… (${b2+1}/${total})`);
+    const resp=await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${loc}`);
+    if(!resp.ok)throw new Error('Elevation API error '+resp.status);
+    const d=await resp.json();
+    for(let k=0;k<d.results.length;k++)res[s+k]=d.results[k].elevation??0;
+    if(b2<total-1)await sleep(1100);
+  }
+  return res;
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function buildMesh(elev,name,mkPos){
+  const T=[];
+  let mn=Infinity,mx=-Infinity;
+  for(let i=0;i<elev.length;i++){if(elev[i]<mn)mn=elev[i];if(elev[i]>mx)mx=elev[i];}
+  const rng=Math.max(mx-mn,10);
+  const ez=(i,j)=>BASE_H+((elev[j*GRID+i]-mn)/rng)*TERRAIN_MAX_H;
+  const gm=(i,j)=>[BORDER_MM+(i/(GRID-1))*TERRAIN_MM,BORDER_MM+(j/(GRID-1))*TERRAIN_MM];
+
+  for(let j=0;j<GRID-1;j++)for(let i=0;i<GRID-1;i++){
+    const[x0,y0]=gm(i,j),[x1]=gm(i+1,j),[,y2]=gm(i,j+1),[x3,y3]=gm(i+1,j+1);
+    quad(T,[x0,y0,ez(i,j)],[x1,y0,ez(i+1,j)],[x0,y2,ez(i,j+1)],[x3,y3,ez(i+1,j+1)]);
+  }
+  quad(T,[0,0,0],[PRINT_MM,0,0],[0,PRINT_MM,0],[PRINT_MM,PRINT_MM,0]);
+  quad(T,[0,0,0],[PRINT_MM,0,0],[0,0,BASE_H],[PRINT_MM,0,BASE_H]);
+  quad(T,[PRINT_MM,PRINT_MM,0],[0,PRINT_MM,0],[PRINT_MM,PRINT_MM,BASE_H],[0,PRINT_MM,BASE_H]);
+  quad(T,[0,PRINT_MM,0],[0,0,0],[0,PRINT_MM,BASE_H],[0,0,BASE_H]);
+  quad(T,[PRINT_MM,0,0],[PRINT_MM,PRINT_MM,0],[PRINT_MM,0,BASE_H],[PRINT_MM,PRINT_MM,BASE_H]);
+  for(let i=0;i<GRID-1;i++){
+    const[x0]=gm(i,0),[x1]=gm(i+1,0),z0=ez(i,0),z1=ez(i+1,0);
+    quad(T,[x0,0,BASE_H],[x1,0,BASE_H],[x0,BORDER_MM,BASE_H],[x1,BORDER_MM,BASE_H]);
+    quad(T,[x0,BORDER_MM,BASE_H],[x1,BORDER_MM,BASE_H],[x0,BORDER_MM,z0],[x1,BORDER_MM,z1]);
+    const[,yb]=[0,PRINT_MM-BORDER_MM],z0b=ez(i,GRID-1),z1b=ez(i+1,GRID-1),[x0b]=gm(i,GRID-1),[x1b]=gm(i+1,GRID-1);
+    quad(T,[x0b,PRINT_MM,BASE_H],[x1b,PRINT_MM,BASE_H],[x0b,yb,BASE_H],[x1b,yb,BASE_H]);
+    quad(T,[x0b,yb,BASE_H],[x1b,yb,BASE_H],[x0b,yb,z0b],[x1b,yb,z1b]);
+  }
+  for(let j=0;j<GRID-1;j++){
+    const[,y0]=gm(0,j),[,y1]=gm(0,j+1),z0=ez(0,j),z1=ez(0,j+1);
+    quad(T,[0,y0,BASE_H],[0,y1,BASE_H],[BORDER_MM,y0,BASE_H],[BORDER_MM,y1,BASE_H]);
+    quad(T,[BORDER_MM,y0,BASE_H],[BORDER_MM,y1,BASE_H],[BORDER_MM,y0,z0],[BORDER_MM,y1,z1]);
+    const xr=PRINT_MM-BORDER_MM,[,y0r]=gm(GRID-1,j),[,y1r]=gm(GRID-1,j+1),z0r=ez(GRID-1,j),z1r=ez(GRID-1,j+1);
+    quad(T,[PRINT_MM,y0r,BASE_H],[PRINT_MM,y1r,BASE_H],[xr,y0r,BASE_H],[xr,y1r,BASE_H]);
+    quad(T,[xr,y0r,BASE_H],[xr,y1r,BASE_H],[xr,y0r,z0r],[xr,y1r,z1r]);
+  }
+  const bw=BORDER_MM;
+  quad(T,[0,0,BASE_H],[PRINT_MM,0,BASE_H],[0,bw,BASE_H],[PRINT_MM,bw,BASE_H]);
+  quad(T,[0,PRINT_MM-bw,BASE_H],[PRINT_MM,PRINT_MM-bw,BASE_H],[0,PRINT_MM,BASE_H],[PRINT_MM,PRINT_MM,BASE_H]);
+  quad(T,[0,bw,BASE_H],[bw,bw,BASE_H],[0,PRINT_MM-bw,BASE_H],[bw,PRINT_MM-bw,BASE_H]);
+  quad(T,[PRINT_MM-bw,bw,BASE_H],[PRINT_MM,bw,BASE_H],[PRINT_MM-bw,PRINT_MM-bw,BASE_H],[PRINT_MM,PRINT_MM-bw,BASE_H]);
+  addText(T,name,PRINT_MM/2,bw/2,BASE_H);
+  if(mkPos){const[mi,mj]=mkPos,[mx2,my2]=gm(mi,mj),mz=ez(mi,mj);addPin(T,mx2,my2,mz);}
+  return T;
+}
+
+function quad(T,a,b,c,d){tri(T,a,b,c);tri(T,b,d,c);}
+function tri(T,a,b,c){
+  const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+  const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+  const l=Math.hypot(...n)||1;T.push({n:n.map(x=>x/l),a,b,c});
+}
+
+function addText(T,text,cx,cy,bz){
+  const chars=[...text.toUpperCase()],tot=chars.length*6-1;
+  const sc=Math.min(TEXT_PIXEL,(TERRAIN_MM*.9)/tot);
+  const sx=cx-(tot*sc)/2,sy=cy-(7*sc)/2,tz=bz+TEXT_RAISE;
+  chars.forEach((c,ci)=>{
+    const rows=getChar(c),ox=sx+ci*6*sc;
+    for(let r=0;r<7;r++)for(let col=0;col<5;col++)if(rows[r]&(1<<(4-col))){
+      const px=ox+col*sc,py=sy+r*sc;
+      quad(T,[px,py,tz],[px+sc,py,tz],[px,py+sc,tz],[px+sc,py+sc,tz]);
+      quad(T,[px,py,bz],[px+sc,py,bz],[px,py,tz],[px+sc,py,tz]);
+      quad(T,[px+sc,py,bz],[px+sc,py+sc,bz],[px+sc,py,tz],[px+sc,py+sc,tz]);
+      quad(T,[px+sc,py+sc,bz],[px,py+sc,bz],[px+sc,py+sc,tz],[px,py+sc,tz]);
+      quad(T,[px,py+sc,bz],[px,py,bz],[px,py+sc,tz],[px,py,tz]);
+    }
+  });
+}
+function addPin(T,cx,cy,bz){
+  const r=MARKER_R,h=MARKER_H,tip=[cx,cy,bz+h];
+  for(let i=0;i<12;i++){
+    const a0=i/12*Math.PI*2,a1=(i+1)/12*Math.PI*2;
+    const x0=cx+Math.cos(a0)*r,y0=cy+Math.sin(a0)*r,x1=cx+Math.cos(a1)*r,y1=cy+Math.sin(a1)*r;
+    tri(T,[x0,y0,bz],[x1,y1,bz],tip);tri(T,[cx,cy,bz],[x1,y1,bz],[x0,y0,bz]);
+  }
+}
+
+function toSTL(tris){
+  const buf=new ArrayBuffer(80+4+tris.length*50),v=new DataView(buf);
+  const h=new TextEncoder().encode('TerrainPrint');for(let i=0;i<h.length;i++)v.setUint8(i,h[i]);
+  v.setUint32(80,tris.length,true);let o=84;
+  for(const t of tris){
+    v.setFloat32(o,t.n[0],true);o+=4;v.setFloat32(o,t.n[1],true);o+=4;v.setFloat32(o,t.n[2],true);o+=4;
+    for(const p of[t.a,t.b,t.c]){v.setFloat32(o,p[0],true);o+=4;v.setFloat32(o,p[1],true);o+=4;v.setFloat32(o,p[2],true);o+=4;}
+    v.setUint16(o,0,true);o+=2;
+  }
+  return buf;
+}
+async function to3MF(tris,name){
+  const zip=new JSZip(),vs=[],vm=new Map(),ts=[];
+  const av=(x,y,z)=>{const k=`${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;if(!vm.has(k)){vm.set(k,vs.length);vs.push([x,y,z]);}return vm.get(k);};
+  for(const t of tris)ts.push([av(...t.a),av(...t.b),av(...t.c)]);
+  const vx=vs.map(([x,y,z])=>`<vertex x="${x.toFixed(3)}" y="${y.toFixed(3)}" z="${z.toFixed(3)}"/>`).join('');
+  const tx=ts.map(([a,b,c])=>`<triangle v1="${a}" v2="${b}" v3="${c}"/>`).join('');
+  const n2=name.replace(/&/g,'&amp;');
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>');
+  zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="r0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>');
+  zip.folder('3D').file('3dmodel.model',`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Title">${n2}</metadata><resources><object id="1" type="model"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`);
+  return await zip.generateAsync({type:'arraybuffer'});
+}
+
+function setProgress(p,l){document.getElementById('progress-bar').style.width=p+'%';document.getElementById('progress-pct').textContent=Math.round(p)+'%';if(l)document.getElementById('progress-text').textContent=l;}
+function showProgress(v){document.getElementById('progress-wrap').classList.toggle('visible',v);}
+
+async function generate(){
+  if(!currentBounds)return;
+  const btn=document.getElementById('generate-btn');
+  btn.disabled=true;showProgress(true);document.getElementById('downloads').classList.remove('visible');setProgress(0,'Fetching elevation data…');
+  try{
+    const ed=await fetchElevation(currentBounds);setProgress(82,'Building 3D mesh…');
+    let mkPos=null;
+    if(markerPos&&currentBounds.contains(markerPos)){
+      const sw=currentBounds.getSouthWest(),ne=currentBounds.getNorthEast();
+      mkPos=[Math.max(0,Math.min(GRID-1,Math.round((markerPos.lng-sw.lng)/(ne.lng-sw.lng)*(GRID-1)))),Math.max(0,Math.min(GRID-1,Math.round((markerPos.lat-sw.lat)/(ne.lat-sw.lat)*(GRID-1))))];
+    }
+    await sleep(50);const tris=buildMesh(ed,currentName,mkPos);setProgress(88,'Generating STL…');
+    await sleep(50);const stl=toSTL(tris);setProgress(94,'Generating 3MF…');
+    await sleep(50);const tmf=await to3MF(tris,currentName);setProgress(100,'Done!');
+    const safe=currentName.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+    document.getElementById('stl-btn').onclick=()=>dl(stl,safe+'.stl','model/stl');
+    document.getElementById('tmf-btn').onclick=()=>dl(tmf,safe+'.3mf','application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
+    document.getElementById('downloads').classList.add('visible');
+    showToast(`Generated ${tris.length.toLocaleString()} triangles`,'success');
+  }catch(e){console.error(e);showToast('Error: '+e.message,'error');}
+  finally{btn.disabled=false;showProgress(false);}
+}
+function dl(buf,name,mime){const b=new Blob([buf],{type:mime}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
+
+let tt=null;
+function showToast(m,t=''){const el=document.getElementById('toast');el.textContent=m;el.className='show'+(t?' '+t:'');clearTimeout(tt);tt=setTimeout(()=>{el.className='';},3500);}
+
+initMap();
+</script>
+</body>
+</html>
