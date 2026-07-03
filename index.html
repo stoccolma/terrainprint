@@ -7,71 +7,79 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/earcut@2.2.4/src/earcut.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0d0d0e;--surface:rgba(18,18,20,0.95);--border:rgba(255,255,255,0.08);--accent:#5b8ef4;--accent-hover:#7aa5ff;--text:#f0f0f2;--muted:#888;--danger:#e05c5c;--success:#4caf88}
-body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden;-webkit-font-smoothing:antialiased}
+:root{--bg:#0d0d0e;--s:rgba(18,18,20,.96);--b:rgba(255,255,255,.08);--a:#5b8ef4;--ah:#7aa5ff;--t:#f0f0f2;--m:#888;--d:#e05c5c;--ok:#4caf88}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--t);height:100dvh;overflow:hidden;-webkit-font-smoothing:antialiased}
 #map{position:absolute;inset:0;z-index:1}
-#panel{position:absolute;top:20px;left:20px;width:300px;background:var(--surface);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border-radius:18px;border:1px solid var(--border);box-shadow:0 32px 64px rgba(0,0,0,.7),0 0 0 .5px rgba(255,255,255,.04);padding:22px;z-index:1000;display:flex;flex-direction:column;gap:14px;max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:thin}
+#panel{position:absolute;top:20px;left:20px;width:308px;background:var(--s);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border-radius:18px;border:1px solid var(--b);box-shadow:0 32px 64px rgba(0,0,0,.7);padding:20px;z-index:1000;display:flex;flex-direction:column;gap:13px;max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:thin}
 #panel::-webkit-scrollbar{width:4px}
-#panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+#panel::-webkit-scrollbar-thumb{background:var(--b);border-radius:4px}
 .logo{display:flex;align-items:center;gap:10px}
 .logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px}
-.logo-sub{font-size:11px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
-.search-wrap{position:relative}
-.search-wrap input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:10px 36px 10px 14px;color:var(--text);font-size:13.5px;outline:none;transition:border-color .15s,background .15s}
-.search-wrap input::placeholder{color:var(--muted)}
-.search-wrap input:focus{border-color:rgba(91,142,244,.5);background:rgba(255,255,255,.09)}
-.search-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
-#suggestions{position:absolute;top:calc(100% + 6px);left:0;right:0;background:rgb(20,20,24);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:200;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none}
-#suggestions.open{display:block}
-.sug{padding:10px 14px;font-size:13px;cursor:pointer;transition:background .1s;border-bottom:1px solid rgba(255,255,255,.04)}
-.sug:last-child{border-bottom:none}
-.sug:hover{background:rgba(91,142,244,.15)}
-.sug-name{font-weight:500}
-.sug-detail{font-size:11px;color:var(--muted);margin-top:2px}
-.divider{height:1px;background:var(--border)}
-#sel-info{display:none;background:rgba(91,142,244,.1);border:1px solid rgba(91,142,244,.25);border-radius:10px;padding:12px 14px}
-#sel-info.on{display:block}
-#sel-name{font-size:14px;font-weight:600;margin-bottom:3px}
-#sel-bounds{font-size:11px;color:var(--muted)}
-.btn{width:100%;padding:11px 16px;border-radius:10px;border:none;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,transform .1s,opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.logo-sub{font-size:10px;color:var(--m);letter-spacing:.5px;text-transform:uppercase}
+.sw{position:relative}
+.sw input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--b);border-radius:10px;padding:10px 36px 10px 13px;color:var(--t);font-size:13px;outline:none;transition:border-color .15s,background .15s}
+.sw input::placeholder{color:var(--m)}
+.sw input:focus{border-color:rgba(91,142,244,.5);background:rgba(255,255,255,.09)}
+.si{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--m);pointer-events:none}
+#sug{position:absolute;top:calc(100% + 5px);left:0;right:0;background:rgb(20,20,24);border:1px solid var(--b);border-radius:10px;overflow:hidden;z-index:200;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none}
+#sug.open{display:block}
+.si2{padding:9px 13px;font-size:13px;cursor:pointer;transition:background .1s;border-bottom:1px solid rgba(255,255,255,.04)}
+.si2:last-child{border-bottom:none}
+.si2:hover{background:rgba(91,142,244,.15)}
+.sn{font-weight:500}
+.sd{font-size:11px;color:var(--m);margin-top:2px}
+.div{height:1px;background:var(--b)}
+#sel{display:none;background:rgba(91,142,244,.1);border:1px solid rgba(91,142,244,.25);border-radius:10px;padding:11px 13px}
+#sel.on{display:block}
+#seln{font-size:14px;font-weight:600;margin-bottom:3px}
+#selb{font-size:11px;color:var(--m)}
+.sec{font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:7px}
+.field input[type=text]{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--b);border-radius:10px;padding:9px 13px;color:var(--t);font-size:13px;outline:none;transition:border-color .15s}
+.field input[type=text]:focus{border-color:rgba(91,142,244,.4)}
+.field input[type=text]::placeholder{color:var(--m)}
+.slider-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.slider-row label{font-size:12px;color:var(--m);white-space:nowrap;min-width:90px}
+.slider-row label span{color:var(--t);font-weight:600}
+.slider-row input[type=range]{flex:1;accent-color:var(--a);cursor:pointer;height:4px}
+.btn{width:100%;padding:10px 14px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,transform .1s,opacity .15s;display:flex;align-items:center;justify-content:center;gap:7px}
 .btn:active{transform:scale(.98)}
-.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover:not(:disabled){background:var(--accent-hover)}
-.btn-ghost{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border)}
-.btn-ghost:hover:not(:disabled){background:rgba(255,255,255,.11)}
-.btn-ghost.on{background:rgba(91,142,244,.18);border-color:rgba(91,142,244,.4);color:var(--accent-hover)}
-.btn-success{background:var(--success);color:#fff}
-.btn-success:hover:not(:disabled){background:#5dc99e}
-.sec-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:8px}
-.hint{font-size:11px;color:var(--muted);text-align:center;margin-top:6px;line-height:1.5}
-#progress-wrap{display:none}
-#progress-wrap.on{display:block}
-#progress-top{font-size:12px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between}
-#progress-track{height:4px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
-#progress-bar{height:100%;background:var(--accent);border-radius:999px;width:0%;transition:width .25s ease}
-#downloads{display:none;flex-direction:column;gap:8px}
-#downloads.on{display:flex}
-.dl-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(14px);background:rgb(28,28,32);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:13px;color:var(--text);z-index:9999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:80vw;text-align:center}
+.btn:disabled{opacity:.38;cursor:not-allowed;transform:none}
+.bp{background:var(--a);color:#fff}
+.bp:hover:not(:disabled){background:var(--ah)}
+.bg{background:rgba(255,255,255,.07);color:var(--t);border:1px solid var(--b)}
+.bg:hover:not(:disabled){background:rgba(255,255,255,.11)}
+.bg.on{background:rgba(91,142,244,.18);border-color:rgba(91,142,244,.4);color:var(--ah)}
+.bs{background:var(--ok);color:#fff}
+.bs:hover:not(:disabled){background:#5dc99e}
+.mkrow{display:flex;gap:7px}
+.mkrow .btn{flex:1}
+.hint{font-size:11px;color:var(--m);text-align:center;margin-top:5px;line-height:1.5}
+#prog{display:none}
+#prog.on{display:block}
+#prog-top{font-size:12px;color:var(--m);margin-bottom:7px;display:flex;justify-content:space-between}
+#prog-track{height:4px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden}
+#prog-bar{height:100%;background:var(--a);border-radius:999px;width:0%;transition:width .2s ease}
+#dl{display:none;flex-direction:column;gap:7px}
+#dl.on{display:flex}
+.dl-lbl{font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(14px);background:rgb(26,26,30);border:1px solid var(--b);border-radius:10px;padding:9px 18px;font-size:13px;color:var(--t);z-index:9999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:85vw;text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-#toast.err{border-color:rgba(224,92,92,.4);color:var(--danger)}
-#toast.ok{border-color:rgba(76,175,136,.4);color:var(--success)}
-.draw-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
-.leaflet-control-zoom{border:1px solid var(--border)!important;border-radius:12px!important;overflow:hidden}
-.leaflet-control-zoom a{background:rgba(18,18,20,.92)!important;color:var(--text)!important;border:none!important;width:34px!important;height:34px!important;line-height:34px!important;font-size:16px!important}
-.leaflet-control-zoom a:hover{background:rgba(40,40,48,.95)!important}
-#marker-row{display:flex;gap:8px}
-#marker-row .btn{flex:1}
+#toast.err{border-color:rgba(224,92,92,.4);color:var(--d)}
+#toast.ok{border-color:rgba(76,175,136,.4);color:var(--ok)}
+.drawhint{font-size:11.5px;color:var(--m);text-align:center;line-height:1.5}
+.leaflet-control-zoom{border:1px solid var(--b)!important;border-radius:12px!important;overflow:hidden}
+.leaflet-control-zoom a{background:rgba(16,16,18,.92)!important;color:var(--t)!important;border:none!important;width:34px!important;height:34px!important;line-height:34px!important;font-size:16px!important}
+.leaflet-control-zoom a:hover{background:rgba(35,35,42,.95)!important}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="panel">
   <div class="logo">
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
       <rect width="32" height="32" rx="8" fill="#5b8ef4" opacity="0.15"/>
       <path d="M6 22L12 10l5 8 4-5 5 9H6z" fill="#5b8ef4" opacity="0.8"/>
       <path d="M6 24h20" stroke="#5b8ef4" stroke-width="2" stroke-linecap="round"/>
@@ -82,62 +90,76 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;
       <div class="logo-sub">Map → 3D Print</div>
     </div>
   </div>
-  <div class="search-wrap">
+  <div class="sw">
     <input id="search-input" type="text" placeholder="Search for a place…" autocomplete="off">
-    <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <svg class="si" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
     </svg>
-    <div id="suggestions"></div>
+    <div id="sug"></div>
   </div>
-  <div class="draw-hint">Or drag on the map to draw a selection</div>
-  <div id="sel-info">
-    <div id="sel-name">—</div>
-    <div id="sel-bounds"></div>
+  <div class="drawhint">Or drag on the map to draw an area</div>
+  <div id="sel">
+    <div id="seln">—</div>
+    <div id="selb"></div>
   </div>
-  <div class="divider"></div>
+  <div class="field">
+    <div class="sec">Print Label</div>
+    <input type="text" id="label-input" placeholder="e.g. Lidingö" maxlength="22" autocomplete="off">
+  </div>
+  <div class="div"></div>
   <div>
-    <div class="sec-label">Marker</div>
-    <div id="marker-row">
-      <button class="btn btn-ghost" id="marker-btn" onclick="toggleMarkerMode()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="sec">Marker</div>
+    <div class="mkrow">
+      <button class="btn bg" id="mk-btn" onclick="toggleMk()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
         </svg>
         Place
       </button>
-      <button class="btn btn-ghost" id="clear-marker-btn" onclick="clearMarker()" style="display:none">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button class="btn bg" id="mk-clr" onclick="clearMk()" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
         Remove
       </button>
     </div>
-    <div id="marker-hint" class="hint" style="display:none">Click on the map to place</div>
-    <div id="marker-ok" class="hint" style="display:none;color:var(--success)">✓ Drag to reposition</div>
+    <div id="mk-hint" class="hint" style="display:none">Click on the map to place</div>
+    <div id="mk-ok" class="hint" style="display:none;color:var(--ok)">✓ Drag to reposition</div>
+    <div id="mk-sliders" style="display:none">
+      <div class="slider-row">
+        <label>Radius <span id="mk-r-val">1.8</span>mm</label>
+        <input type="range" id="mk-r" min="0.8" max="5" step="0.1" value="1.8" oninput="document.getElementById('mk-r-val').textContent=parseFloat(this.value).toFixed(1)">
+      </div>
+      <div class="slider-row">
+        <label>Height <span id="mk-h-val">7.0</span>mm</label>
+        <input type="range" id="mk-h" min="2" max="20" step="0.5" value="7" oninput="document.getElementById('mk-h-val').textContent=parseFloat(this.value).toFixed(1)">
+      </div>
+    </div>
   </div>
-  <button class="btn btn-primary" id="gen-btn" onclick="generate()" disabled>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <button class="btn bp" id="gen-btn" onclick="generate()" disabled>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
     </svg>
     Generate 3D Files
   </button>
-  <div id="progress-wrap">
-    <div id="progress-top">
-      <span id="progress-text">Loading…</span>
-      <span id="progress-pct">0%</span>
+  <div id="prog">
+    <div id="prog-top">
+      <span id="prog-txt">Loading…</span>
+      <span id="prog-pct">0%</span>
     </div>
-    <div id="progress-track"><div id="progress-bar"></div></div>
+    <div id="prog-track"><div id="prog-bar"></div></div>
   </div>
-  <div id="downloads">
-    <div class="dl-label">Download</div>
-    <button class="btn btn-success" id="stl-btn">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <div id="dl">
+    <div class="dl-lbl">Download</div>
+    <button class="btn bs" id="stl-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
       </svg>
       Download STL
     </button>
-    <button class="btn btn-ghost" id="tmf-btn">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <button class="btn bg" id="tmf-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
       </svg>
@@ -148,8 +170,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;
 <div id="toast"></div>
 <script>
 'use strict';
-const GRID=64,PRINT_MM=150,TERRAIN_MM=128,BORDER_MM=11,BASE_H=3,TERRAIN_MAX_H=20,MARKER_R=1.8,MARKER_H=7,TEXT_PIXEL=1.6,TEXT_RAISE=0.8;
-let map,selLyr,mkLyr,rectLyr,bounds=null,areaName='',markerPos=null,markerMode=false;
+const GRID=64,PRINT_MM=150,TERRAIN_MM=128,BORDER_MM=11,BASE_H=3,TERRAIN_MAX_H=20,TEXT_PIXEL=1.6,TEXT_RAISE=0.8;
+let map,selLyr,mkLyr,rectLyr,bounds=null,markerPos=null,markerMode=false;
 
 const FONT={' ':[0,0,0,0,0,0,0],'A':[14,17,17,31,17,17,17],'B':[30,17,17,30,17,17,30],'C':[15,16,16,16,16,16,15],'D':[30,17,17,17,17,17,30],'E':[31,16,16,30,16,16,31],'F':[31,16,16,30,16,16,16],'G':[15,16,16,23,17,17,15],'H':[17,17,17,31,17,17,17],'I':[14,4,4,4,4,4,14],'J':[7,2,2,2,2,18,12],'K':[17,18,20,24,20,18,17],'L':[16,16,16,16,16,16,31],'M':[17,27,21,17,17,17,17],'N':[17,25,21,19,17,17,17],'O':[14,17,17,17,17,17,14],'P':[30,17,17,30,16,16,16],'Q':[14,17,17,17,21,18,13],'R':[30,17,17,30,20,18,17],'S':[15,16,16,14,1,1,30],'T':[31,4,4,4,4,4,4],'U':[17,17,17,17,17,17,14],'V':[17,17,17,17,17,10,4],'W':[17,17,17,21,21,27,17],'X':[17,17,10,4,10,17,17],'Y':[17,17,10,4,4,4,4],'Z':[31,1,2,4,8,16,31],'0':[14,19,21,21,25,17,14],'1':[4,12,4,4,4,4,14],'2':[14,17,1,6,8,16,31],'3':[31,1,2,6,1,17,14],'4':[2,6,10,18,31,2,2],'5':[31,16,30,1,1,17,14],'6':[6,8,16,30,17,17,14],'7':[31,1,2,4,8,8,8],'8':[14,17,17,14,17,17,14],'9':[14,17,17,15,1,2,12],'-':[0,0,0,31,0,0,0],'.':[0,0,0,0,0,4,0],'Ö':[10,14,17,17,17,17,14],'Å':[4,10,4,14,17,31,17],'Ä':[10,0,14,17,31,17,17],'Ø':[15,18,21,21,21,9,30],'Æ':[7,12,20,31,20,20,23],'É':[4,8,31,16,30,16,31],'È':[8,4,31,16,30,16,31],'Ü':[10,0,17,17,17,17,14]};
 const glyph=c=>FONT[c.toUpperCase()]||FONT[c]||FONT[' '];
@@ -170,38 +192,40 @@ function initMap(){
     rectLyr=L.rectangle(L.latLngBounds(startLL,e.latlng),{color:'#5b8ef4',weight:2,fillOpacity:.1,dashArray:'6 3'}).addTo(map);
   });
   map.on('mouseup',e=>{
-    if(markerMode){placeMarker(e.latlng);return;}
+    if(markerMode){placeMk(e.latlng);return;}
     if(!startLL)return;
     map.dragging.enable();
     const b=L.latLngBounds(startLL,e.latlng);startLL=null;
     if(b.getNorthEast().distanceTo(b.getSouthWest())<100){
       if(rectLyr){map.removeLayer(rectLyr);rectLyr=null;}
-      reverseGeocode(e.latlng);
-    }else setSelection(b,null);
+      reverseGeo(e.latlng);
+    }else setSel(b,null);
   });
 }
 
-function reverseGeocode(ll){
+function reverseGeo(ll){
   fetch(`https://nominatim.openstreetmap.org/reverse?lat=${ll.lat}&lon=${ll.lng}&format=json`)
     .then(r=>r.json()).then(d=>{
       if(!d?.boundingbox)return;
       const bb=d.boundingbox.map(Number);
       const b=L.latLngBounds([bb[0],bb[2]],[bb[1],bb[3]]);
-      const n=d.address?.municipality||d.address?.city||d.address?.town||d.address?.village||d.address?.county||d.name||'Selected Area';
-      setSelection(b,n);map.fitBounds(b,{padding:[60,60]});
+      const n=d.address?.municipality||d.address?.city||d.address?.town||d.address?.village||d.address?.county||d.name||'';
+      setSel(b,n);map.fitBounds(b,{padding:[60,60]});
     }).catch(()=>toast('Geocoding failed','err'));
 }
 
-function setSelection(b,name){
-  bounds=b;areaName=name||'Selected Area';
+function setSel(b,name){
+  bounds=b;
   if(selLyr)map.removeLayer(selLyr);
   selLyr=L.rectangle(b,{color:'#5b8ef4',weight:2,fillOpacity:.08}).addTo(map);
-  document.getElementById('sel-name').textContent=areaName;
+  document.getElementById('seln').textContent=name||'Custom Area';
   const sw=b.getSouthWest(),ne=b.getNorthEast();
-  document.getElementById('sel-bounds').textContent=`${sw.lat.toFixed(4)}°, ${sw.lng.toFixed(4)}° → ${ne.lat.toFixed(4)}°, ${ne.lng.toFixed(4)}°`;
-  document.getElementById('sel-info').classList.add('on');
+  document.getElementById('selb').textContent=`${sw.lat.toFixed(4)}°, ${sw.lng.toFixed(4)}° → ${ne.lat.toFixed(4)}°, ${ne.lng.toFixed(4)}°`;
+  document.getElementById('sel').classList.add('on');
+  const li=document.getElementById('label-input');
+  if(name&&!li.dataset.userEdited)li.value=name;
   document.getElementById('gen-btn').disabled=false;
-  document.getElementById('downloads').classList.remove('on');
+  document.getElementById('dl').classList.remove('on');
 }
 
 let sto=null;
@@ -212,94 +236,88 @@ document.getElementById('search-input').addEventListener('input',e=>{
     .then(r=>r.json()).then(showSug).catch(()=>{}),400);
 });
 document.getElementById('search-input').addEventListener('keydown',e=>e.key==='Escape'&&closeSug());
-document.addEventListener('click',e=>!e.target.closest('.search-wrap')&&closeSug());
+document.addEventListener('click',e=>!e.target.closest('.sw')&&closeSug());
 
 function showSug(res){
-  const el=document.getElementById('suggestions');
+  const el=document.getElementById('sug');
   if(!res.length){closeSug();return;}
-  el.innerHTML=res.map((r,i)=>{
-    const p=r.display_name.split(',');
-    return`<div class="sug" onclick="pickSug(${i})"><div class="sug-name">${p[0]}</div><div class="sug-detail">${p.slice(1,3).join(',').trim()}</div></div>`;
-  }).join('');
+  el.innerHTML=res.map((r,i)=>{const p=r.display_name.split(',');return`<div class="si2" onclick="pickSug(${i})"><div class="sn">${p[0]}</div><div class="sd">${p.slice(1,3).join(',').trim()}</div></div>`;}).join('');
   el._r=res;el.classList.add('open');
 }
-function closeSug(){document.getElementById('suggestions').classList.remove('open');}
+function closeSug(){document.getElementById('sug').classList.remove('open');}
 function pickSug(i){
-  const r=document.getElementById('suggestions')._r[i];closeSug();
+  const r=document.getElementById('sug')._r[i];closeSug();
   document.getElementById('search-input').value=r.display_name.split(',')[0];
   const bb=r.boundingbox.map(Number);
-  const b=L.latLngBounds([bb[0],bb[2]],[bb[1],bb[3]]);
-  setSelection(b,r.display_name.split(',')[0]);
-  map.fitBounds(b,{padding:[60,60]});
+  setSel(L.latLngBounds([bb[0],bb[2]],[bb[1],bb[3]]),r.display_name.split(',')[0]);
+  map.fitBounds(L.latLngBounds([bb[0],bb[2]],[bb[1],bb[3]]),{padding:[60,60]});
 }
+
+document.getElementById('label-input').addEventListener('input',()=>{
+  document.getElementById('label-input').dataset.userEdited='1';
+});
 
 const MK_ICON=L.divIcon({className:'',html:`<div style="width:24px;height:24px;background:#5b8ef4;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 3px 12px rgba(0,0,0,.5);cursor:grab"></div>`,iconSize:[24,24],iconAnchor:[12,24]});
 
-function toggleMarkerMode(){
+function toggleMk(){
   markerMode=!markerMode;
-  document.getElementById('marker-btn').classList.toggle('on',markerMode);
-  document.getElementById('marker-hint').style.display=markerMode?'block':'none';
+  document.getElementById('mk-btn').classList.toggle('on',markerMode);
+  document.getElementById('mk-hint').style.display=markerMode?'block':'none';
   map.getContainer().style.cursor=markerMode?'crosshair':'';
 }
-
-function placeMarker(ll){
+function placeMk(ll){
   markerPos=ll;
   if(mkLyr)map.removeLayer(mkLyr);
   mkLyr=L.marker(ll,{icon:MK_ICON,draggable:true}).addTo(map);
   mkLyr.on('drag',e=>{markerPos=e.target.getLatLng();});
-  mkLyr.on('dragend',e=>{markerPos=e.target.getLatLng();map.getContainer().style.cursor='';});
-  document.getElementById('marker-ok').style.display='block';
-  document.getElementById('marker-hint').style.display='none';
-  document.getElementById('clear-marker-btn').style.display='';
+  mkLyr.on('dragend',e=>{markerPos=e.target.getLatLng();});
+  document.getElementById('mk-ok').style.display='block';
+  document.getElementById('mk-hint').style.display='none';
+  document.getElementById('mk-clr').style.display='';
+  document.getElementById('mk-sliders').style.display='block';
   markerMode=false;
-  document.getElementById('marker-btn').classList.remove('on');
+  document.getElementById('mk-btn').classList.remove('on');
   map.getContainer().style.cursor='';
 }
-
-function clearMarker(){
+function clearMk(){
   if(mkLyr){map.removeLayer(mkLyr);mkLyr=null;}
   markerPos=null;
-  document.getElementById('marker-ok').style.display='none';
-  document.getElementById('clear-marker-btn').style.display='none';
+  document.getElementById('mk-ok').style.display='none';
+  document.getElementById('mk-clr').style.display='none';
+  document.getElementById('mk-sliders').style.display='none';
 }
 
-function lngLatToTile(lat,lng,z){
+function tileXY(lat,lng,z){
   const n=1<<z,lr=lat*Math.PI/180;
   return{x:Math.floor((lng+180)/360*n),y:Math.floor((1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n)};
 }
-
 async function fetchElevation(b){
   const sw=b.getSouthWest(),ne=b.getNorthEast();
   const span=Math.max(Math.abs(ne.lat-sw.lat),Math.abs(ne.lng-sw.lng));
   const zoom=span>6?8:span>2?9:span>0.5?10:span>0.1?11:12;
-  const tl=lngLatToTile(ne.lat,sw.lng,zoom);
-  const br=lngLatToTile(sw.lat,ne.lng,zoom);
+  const tl=tileXY(ne.lat,sw.lng,zoom),br=tileXY(sw.lat,ne.lng,zoom);
   const tw=br.x-tl.x+1,th=br.y-tl.y+1,total=tw*th;
-  const TSIZE=256;
-  const canvas=document.createElement('canvas');
-  canvas.width=tw*TSIZE;canvas.height=th*TSIZE;
+  const TS=256,canvas=document.createElement('canvas');
+  canvas.width=tw*TS;canvas.height=th*TS;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
   let done=0;
-  await Promise.all(
-    Array.from({length:tw*th},(_,idx)=>{
-      const tx=tl.x+idx%tw,ty=tl.y+Math.floor(idx/tw);
-      const px=(tx-tl.x)*TSIZE,py=(ty-tl.y)*TSIZE;
-      return new Promise(res=>{
-        const img=new Image();img.crossOrigin='anonymous';
-        img.onload=()=>{ctx.drawImage(img,px,py);done++;setProgress(done/total*75,`Loading elevation tiles… (${done}/${total})`);res();};
-        img.onerror=()=>{done++;setProgress(done/total*75,`Loading elevation tiles… (${done}/${total})`);res();};
-        img.src=`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${zoom}/${tx}/${ty}.png`;
-      });
-    })
-  );
-  function toCanvasPx(lat,lng){
+  await Promise.all(Array.from({length:tw*th},(_,idx)=>{
+    const tx=tl.x+idx%tw,ty=tl.y+Math.floor(idx/tw);
+    return new Promise(res=>{
+      const img=new Image();img.crossOrigin='anonymous';
+      img.onload=()=>{ctx.drawImage(img,(tx-tl.x)*TS,(ty-tl.y)*TS);done++;prog(done/total*65,`Loading elevation… (${done}/${total})`);res();};
+      img.onerror=()=>{done++;prog(done/total*65,`Loading elevation… (${done}/${total})`);res();};
+      img.src=`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${zoom}/${tx}/${ty}.png`;
+    });
+  }));
+  function canvasPx(lat,lng){
     const n=1<<zoom,lr=lat*Math.PI/180;
-    return[Math.round(((lng+180)/360*n-tl.x)*TSIZE),Math.round(((1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n-tl.y)*TSIZE)];
+    return[Math.round(((lng+180)/360*n-tl.x)*TS),Math.round(((1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n-tl.y)*TS)];
   }
   const elev=new Float32Array(GRID*GRID);
   for(let j=0;j<GRID;j++)for(let i=0;i<GRID;i++){
     const lat=sw.lat+(ne.lat-sw.lat)*j/(GRID-1),lng=sw.lng+(ne.lng-sw.lng)*i/(GRID-1);
-    const[cx,cy]=toCanvasPx(lat,lng);
+    const[cx,cy]=canvasPx(lat,lng);
     const x=Math.max(0,Math.min(canvas.width-1,cx)),y=Math.max(0,Math.min(canvas.height-1,cy));
     const d=ctx.getImageData(x,y,1,1).data;
     elev[j*GRID+i]=Math.max(0,(d[0]*256+d[1]+d[2]/256)-32768);
@@ -307,13 +325,50 @@ async function fetchElevation(b){
   return elev;
 }
 
-function buildMesh(elev,name,mkPos){
+async function fetchOSM(b){
+  const sw=b.getSouthWest(),ne=b.getNorthEast();
+  const span=Math.max(ne.lat-sw.lat,ne.lng-sw.lng);
+  if(span>0.5){toast('Area too large for building detail — terrain only','');return null;}
+  const bb=`${sw.lat.toFixed(5)},${sw.lng.toFixed(5)},${ne.lat.toFixed(5)},${ne.lng.toFixed(5)}`;
+  const q=`[out:json][timeout:30][bbox:${bb}];(way[building];way[highway~"^(motorway|trunk|primary|secondary|tertiary|residential|unclassified|service)$"];way[natural=water];way[waterway~"^(river|canal|stream)$"];way[landuse=water];);out body;>;out skel qt;`;
+  prog(68,'Loading map features…');
+  const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),signal:AbortSignal.timeout(35000)});
+  if(!r.ok)throw new Error('OSM API '+r.status);
+  const data=await r.json();
+  const nodes={};
+  for(const e of data.elements)if(e.type==='node')nodes[e.id]=[e.lat,e.lon];
+  const out={buildings:[],roads:[],water:[]};
+  for(const e of data.elements){
+    if(e.type!=='way')continue;
+    const coords=e.nodes.map(id=>nodes[id]).filter(Boolean);
+    if(coords.length<2)continue;
+    const t=e.tags||{};
+    if(t.building)out.buildings.push({coords,tags:t});
+    else if(t.highway)out.roads.push({coords,type:t.highway,tags:t});
+    else if(t.natural==='water'||t.waterway||t.landuse==='water')out.water.push({coords,tags:t});
+  }
+  return out;
+}
+
+const ROAD_W={motorway:1.4,trunk:1.3,primary:1.1,secondary:0.9,tertiary:0.65,residential:0.5,unclassified:0.5,service:0.4};
+
+function buildMesh(elevData,label,mkPos,mkR,mkH,osm){
   const T=[];
   let mn=Infinity,mx=-Infinity;
-  for(let i=0;i<elev.length;i++){if(elev[i]<mn)mn=elev[i];if(elev[i]>mx)mx=elev[i];}
+  for(let i=0;i<elevData.length;i++){if(elevData[i]<mn)mn=elevData[i];if(elevData[i]>mx)mx=elevData[i];}
   const rng=Math.max(mx-mn,5);
-  const ez=(i,j)=>BASE_H+((elev[j*GRID+i]-mn)/rng)*TERRAIN_MAX_H;
-  const gm=(i,j)=>[BORDER_MM+(i/(GRID-1))*TERRAIN_MM,BORDER_MM+(j/(GRID-1))*TERRAIN_MM];
+  const realScale=TERRAIN_MAX_H/rng;
+
+  function ez(i,j){return BASE_H+((elevData[j*GRID+i]-mn)/rng)*TERRAIN_MAX_H;}
+  function gm(i,j){return[BORDER_MM+(i/(GRID-1))*TERRAIN_MM,BORDER_MM+(j/(GRID-1))*TERRAIN_MM];}
+  function elevAtMM(x,y){
+    const gi=(x-BORDER_MM)/TERRAIN_MM*(GRID-1),gj=(y-BORDER_MM)/TERRAIN_MM*(GRID-1);
+    const i0=Math.max(0,Math.min(GRID-1,Math.floor(gi))),j0=Math.max(0,Math.min(GRID-1,Math.floor(gj)));
+    const i1=Math.min(GRID-1,i0+1),j1=Math.min(GRID-1,j0+1);
+    const fi=gi-i0,fj=gj-j0;
+    return ez(i0,j0)*(1-fi)*(1-fj)+ez(i1,j0)*fi*(1-fj)+ez(i0,j1)*(1-fi)*fj+ez(i1,j1)*fi*fj;
+  }
+
   for(let j=0;j<GRID-1;j++)for(let i=0;i<GRID-1;i++){
     const[x0,y0]=gm(i,j),[x1]=gm(i+1,j),[,y1]=gm(i,j+1),[x2,y2]=gm(i+1,j+1);
     quad(T,[x0,y0,ez(i,j)],[x1,y0,ez(i+1,j)],[x0,y1,ez(i,j+1)],[x2,y2,ez(i+1,j+1)]);
@@ -344,8 +399,68 @@ function buildMesh(elev,name,mkPos){
   quad(T,[0,PRINT_MM-bw,BASE_H],[PRINT_MM,PRINT_MM-bw,BASE_H],[0,PRINT_MM,BASE_H],[PRINT_MM,PRINT_MM,BASE_H]);
   quad(T,[0,bw,BASE_H],[bw,bw,BASE_H],[0,PRINT_MM-bw,BASE_H],[bw,PRINT_MM-bw,BASE_H]);
   quad(T,[PRINT_MM-bw,bw,BASE_H],[PRINT_MM,bw,BASE_H],[PRINT_MM-bw,PRINT_MM-bw,BASE_H],[PRINT_MM,PRINT_MM-bw,BASE_H]);
-  addText(T,name,PRINT_MM/2,bw/2,BASE_H);
-  if(mkPos){const[mi,mj]=mkPos,[mx2,my2]=gm(mi,mj),mz=ez(mi,mj);addPin(T,mx2,my2,mz);}
+  if(label)addText(T,label,PRINT_MM/2,bw/2,BASE_H);
+
+  if(osm&&bounds){
+    const sw=bounds.getSouthWest(),ne=bounds.getNorthEast();
+    const lngW=ne.lng-sw.lng,latH=ne.lat-sw.lat;
+    function ll2mm(lat,lng){return[BORDER_MM+(lng-sw.lng)/lngW*TERRAIN_MM,BORDER_MM+(lat-sw.lat)/latH*TERRAIN_MM];}
+    const T0=BORDER_MM-1,T1=BORDER_MM+TERRAIN_MM+1;
+    function inT(x,y){return x>=T0&&x<=T1&&y>=T0&&y<=T1;}
+    function cl(x,y){return[Math.max(BORDER_MM,Math.min(BORDER_MM+TERRAIN_MM,x)),Math.max(BORDER_MM,Math.min(BORDER_MM+TERRAIN_MM,y))];}
+
+    const waterZ=BASE_H+0.25;
+    for(const w of osm.water){
+      const poly=w.coords.map(([la,lo])=>ll2mm(la,lo));
+      if(!poly.some(([x,y])=>inT(x,y)))continue;
+      addFlatPoly(T,poly.map(([x,y])=>cl(x,y)),waterZ);
+    }
+
+    for(const r of osm.roads){
+      const w=ROAD_W[r.type]||0.45;
+      const pts=r.coords.map(([la,lo])=>ll2mm(la,lo));
+      for(let i=0;i<pts.length-1;i++){
+        const[x0,y0]=pts[i],[x1,y1]=pts[i+1];
+        if(!inT(x0,y0)&&!inT(x1,y1))continue;
+        const dx=x1-x0,dy=y1-y0,len=Math.hypot(dx,dy);
+        if(len<0.05)continue;
+        const nx=-dy/len*w/2,ny=dx/len*w/2;
+        const[cx0,cy0]=cl(x0,y0),[cx1,cy1]=cl(x1,y1);
+        const z0=elevAtMM(cx0,cy0)+0.2,z1=elevAtMM(cx1,cy1)+0.2;
+        quad(T,[x0+nx,y0+ny,z0],[x0-nx,y0-ny,z0],[x1+nx,y1+ny,z1],[x1-nx,y1-ny,z1]);
+      }
+    }
+
+    for(const b2 of osm.buildings){
+      const poly=b2.coords.map(([la,lo])=>ll2mm(la,lo));
+      if(!poly.some(([x,y])=>inT(x,y)))continue;
+      const clamped=poly.map(([x,y])=>cl(x,y));
+      const pts2d=clamped[0][0]===clamped[clamped.length-1][0]&&clamped[0][1]===clamped[clamped.length-1][1]?clamped.slice(0,-1):clamped;
+      if(pts2d.length<3)continue;
+      const floors=b2.tags['building:levels']?parseFloat(b2.tags['building:levels']):null;
+      const realH=b2.tags['height']?parseFloat(b2.tags['height']):(floors?floors*3:8);
+      const modelH=Math.max(1.5,Math.min(10,realH*realScale));
+      const baseZ=pts2d.reduce((s,[x,y])=>s+elevAtMM(x,y),0)/pts2d.length;
+      const topZ=baseZ+modelH;
+      try{
+        const flat=pts2d.flatMap(([x,y])=>[x,y]);
+        const idx=earcut(flat);
+        for(let k=0;k<idx.length;k+=3){
+          const a=pts2d[idx[k]],b3=pts2d[idx[k+1]],c=pts2d[idx[k+2]];
+          tri(T,[a[0],a[1],topZ],[b3[0],b3[1],topZ],[c[0],c[1],topZ]);
+        }
+      }catch(e){}
+      for(let k=0;k<pts2d.length;k++){
+        const a=pts2d[k],b3=pts2d[(k+1)%pts2d.length];
+        quad(T,[a[0],a[1],baseZ],[b3[0],b3[1],baseZ],[a[0],a[1],topZ],[b3[0],b3[1],topZ]);
+      }
+    }
+  }
+
+  if(mkPos){
+    const[mi,mj]=mkPos,[mx2,my2]=gm(mi,mj),mz=ez(mi,mj);
+    addPin(T,mx2,my2,mz,mkR,mkH);
+  }
   return T;
 }
 
@@ -354,6 +469,19 @@ function tri(T,a,b,c){
   const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
   const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
   const l=Math.hypot(...n)||1;T.push({n:n.map(x=>x/l),a,b,c});
+}
+function addFlatPoly(T,pts2d,z){
+  if(pts2d.length<3)return;
+  const cl2=pts2d[0][0]===pts2d[pts2d.length-1][0]&&pts2d[0][1]===pts2d[pts2d.length-1][1]?pts2d.slice(0,-1):pts2d;
+  if(cl2.length<3)return;
+  try{
+    const flat=cl2.flatMap(([x,y])=>[x,y]);
+    const idx=earcut(flat);
+    for(let k=0;k<idx.length;k+=3){
+      const a=cl2[idx[k]],b=cl2[idx[k+1]],c=cl2[idx[k+2]];
+      tri(T,[a[0],a[1],z],[b[0],b[1],z],[c[0],c[1],z]);
+    }
+  }catch(e){}
 }
 function addText(T,text,cx,cy,bz){
   const chars=[...text.toUpperCase()],tot=chars.length*6-1;
@@ -371,11 +499,11 @@ function addText(T,text,cx,cy,bz){
     }
   });
 }
-function addPin(T,cx,cy,bz){
-  const tip=[cx,cy,bz+MARKER_H];
+function addPin(T,cx,cy,bz,r,h){
+  const tip=[cx,cy,bz+h];
   for(let i=0;i<16;i++){
     const a0=i/16*Math.PI*2,a1=(i+1)/16*Math.PI*2;
-    const x0=cx+Math.cos(a0)*MARKER_R,y0=cy+Math.sin(a0)*MARKER_R,x1=cx+Math.cos(a1)*MARKER_R,y1=cy+Math.sin(a1)*MARKER_R;
+    const x0=cx+Math.cos(a0)*r,y0=cy+Math.sin(a0)*r,x1=cx+Math.cos(a1)*r,y1=cy+Math.sin(a1)*r;
     tri(T,[x0,y0,bz],[x1,y1,bz],tip);tri(T,[cx,cy,bz],[x1,y1,bz],[x0,y0,bz]);
   }
 }
@@ -404,37 +532,42 @@ async function to3MF(tris,name){
   return await zip.generateAsync({type:'arraybuffer'});
 }
 
-function setProgress(p,l){document.getElementById('progress-bar').style.width=p+'%';document.getElementById('progress-pct').textContent=Math.round(p)+'%';if(l)document.getElementById('progress-text').textContent=l;}
-function showProg(v){document.getElementById('progress-wrap').classList.toggle('on',v);}
+function prog(p,l){document.getElementById('prog-bar').style.width=p+'%';document.getElementById('prog-pct').textContent=Math.round(p)+'%';if(l)document.getElementById('prog-txt').textContent=l;}
+function showProg(v){document.getElementById('prog').classList.toggle('on',v);}
 let toastTO=null;
-function toast(m,t=''){const el=document.getElementById('toast');el.textContent=m;el.className='on'+(t?' '+t:'');clearTimeout(toastTO);toastTO=setTimeout(()=>{el.className='';},3800);}
+function toast(m,t=''){const el=document.getElementById('toast');el.textContent=m;el.className='on'+(t?' '+t:'');clearTimeout(toastTO);toastTO=setTimeout(()=>{el.className='';},4000);}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function dl(buf,name,mime){const b=new Blob([buf],{type:mime}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
 
 async function generate(){
   if(!bounds)return;
+  const label=(document.getElementById('label-input').value.trim()||document.getElementById('seln').textContent||'Terrain').slice(0,22);
+  const mkR=parseFloat(document.getElementById('mk-r').value);
+  const mkH=parseFloat(document.getElementById('mk-h').value);
   const btn=document.getElementById('gen-btn');
-  btn.disabled=true;showProg(true);document.getElementById('downloads').classList.remove('on');
-  setProgress(0,'Loading elevation tiles…');
+  btn.disabled=true;showProg(true);document.getElementById('dl').classList.remove('on');
+  prog(0,'Loading elevation tiles…');
   try{
-    const ed=await fetchElevation(bounds);
-    setProgress(78,'Building mesh…');
+    const elevData=await fetchElevation(bounds);
+    let osmData=null;
+    try{osmData=await fetchOSM(bounds);prog(80,'Building 3D mesh…');}
+    catch(e){toast('Map features unavailable — terrain only','');prog(80,'Building 3D mesh…');}
     let mkPos=null;
     if(markerPos&&bounds.contains(markerPos)){
       const sw=bounds.getSouthWest(),ne=bounds.getNorthEast();
       mkPos=[Math.max(0,Math.min(GRID-1,Math.round((markerPos.lng-sw.lng)/(ne.lng-sw.lng)*(GRID-1)))),Math.max(0,Math.min(GRID-1,Math.round((markerPos.lat-sw.lat)/(ne.lat-sw.lat)*(GRID-1))))];
     }
     await sleep(30);
-    const tris=buildMesh(ed,areaName,mkPos);
-    setProgress(88,'Generating STL…');await sleep(30);
+    const tris=buildMesh(elevData,label,mkPos,mkR,mkH,osmData);
+    prog(90,'Generating STL…');await sleep(30);
     const stl=toSTL(tris);
-    setProgress(94,'Generating 3MF…');await sleep(30);
-    const tmf=await to3MF(tris,areaName);
-    setProgress(100,'Done!');
-    const safe=areaName.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+    prog(95,'Generating 3MF…');await sleep(30);
+    const tmf=await to3MF(tris,label);
+    prog(100,'Done!');
+    const safe=label.replace(/[^a-z0-9]/gi,'_').toLowerCase()||'terrain';
     document.getElementById('stl-btn').onclick=()=>dl(stl,safe+'.stl','model/stl');
     document.getElementById('tmf-btn').onclick=()=>dl(tmf,safe+'.3mf','application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
-    document.getElementById('downloads').classList.add('on');
+    document.getElementById('dl').classList.add('on');
     toast(`${tris.length.toLocaleString()} triangles — ready to download`,'ok');
   }catch(e){console.error(e);toast('Failed: '+e.message,'err');}
   finally{btn.disabled=false;showProg(false);}
